@@ -1,0 +1,496 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Bind Checker</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@400;600;700;800&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #060608;
+  --card: #0e0e12;
+  --card2: #13131a;
+  --bdr: rgba(255,255,255,0.07);
+  --bdr2: rgba(255,255,255,0.04);
+  --acc: #00e5ff;
+  --acc2: #ff2d78;
+  --acc3: #a855f7;
+  --txt: #f0f0f5;
+  --muted: #6e6e7a;
+  --green: #30d158;
+  --red: #ff453a;
+  --orange: #ff9f0a;
+}
+* { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+html { scroll-behavior: smooth; }
+
+body {
+  background: var(--bg);
+  color: var(--txt);
+  font-family: 'Syne', sans-serif;
+  min-height: 100vh;
+  overscroll-behavior: none;
+}
+
+body::before {
+  content:'';
+  position:fixed; inset:0; pointer-events:none; z-index:0;
+  background:
+    radial-gradient(ellipse 70% 50% at 0% 0%, rgba(0,229,255,.05) 0%, transparent 55%),
+    radial-gradient(ellipse 50% 40% at 100% 100%, rgba(168,85,247,.06) 0%, transparent 55%),
+    radial-gradient(ellipse 40% 30% at 80% 10%, rgba(255,45,120,.04) 0%, transparent 50%);
+}
+
+.grain {
+  position:fixed; inset:0; pointer-events:none; z-index:0; opacity:.35;
+  background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='.08'/%3E%3C/svg%3E");
+}
+
+.page { position:relative; z-index:1; max-width:460px; margin:0 auto; padding:52px 20px 80px; }
+
+/* header */
+.hdr { text-align:center; animation:fU .55s ease both; margin-bottom:36px; }
+.badge {
+  display:inline-flex; align-items:center; gap:7px;
+  background:rgba(0,229,255,.07); border:1px solid rgba(0,229,255,.15);
+  border-radius:100px; padding:5px 13px; margin-bottom:18px;
+  font-family:'Space Mono',monospace; font-size:10px; color:var(--acc); letter-spacing:.1em;
+}
+.bdot { width:5px;height:5px;border-radius:50%;background:var(--acc);animation:pulse 2s infinite; }
+h1 {
+  font-size:clamp(26px,7vw,34px); font-weight:800; letter-spacing:-.03em; line-height:1.1;
+  background:linear-gradient(135deg,#fff 0%,rgba(255,255,255,.5) 100%);
+  -webkit-background-clip:text; -webkit-text-fill-color:transparent;
+}
+.sub { margin-top:8px; font-size:13px; color:var(--muted); font-weight:400; }
+
+/* input card */
+.iCard {
+  background:var(--card); border:1px solid var(--bdr); border-radius:26px;
+  padding:24px 20px; animation:fU .55s .08s ease both; position:relative; overflow:hidden;
+}
+.iCard::before {
+  content:''; position:absolute; top:0; left:0; right:0; height:1px;
+  background:linear-gradient(90deg,transparent,rgba(255,255,255,.1),transparent);
+}
+.drg { width:40px;height:3px;background:rgba(255,255,255,.08);border-radius:2px;margin:0 auto 22px; }
+.lbl { font-size:10px;font-family:'Space Mono',monospace;color:var(--muted);letter-spacing:.1em;text-transform:uppercase;margin-bottom:8px; }
+.inp {
+  width:100%; background:rgba(255,255,255,.04); border:1px solid var(--bdr);
+  border-radius:13px; padding:13px 14px; color:var(--txt); font-size:13px;
+  font-family:'Space Mono',monospace; outline:none; transition:border-color .2s,box-shadow .2s;
+}
+.inp::placeholder { color:rgba(255,255,255,.18); }
+.inp:focus { border-color:rgba(0,229,255,.35); box-shadow:0 0 0 3px rgba(0,229,255,.07); }
+.inp.shake { animation:shk .35s ease; border-color:rgba(255,69,58,.5) !important; }
+
+.btn {
+  width:100%; margin-top:10px; padding:14px; border:none; border-radius:13px;
+  background:linear-gradient(135deg,var(--acc) 0%,#007aff 100%);
+  color:#000; font-size:14px; font-weight:700; font-family:'Syne',sans-serif;
+  cursor:pointer; transition:opacity .15s,transform .15s,box-shadow .2s;
+  display:flex; align-items:center; justify-content:center; gap:8px;
+}
+.btn:hover { opacity:.88; box-shadow:0 8px 28px rgba(0,229,255,.2); }
+.btn:active { transform:scale(.97); }
+.btnLo {
+  margin-top:6px;
+  background:linear-gradient(135deg,rgba(255,69,58,.8) 0%,rgba(180,30,20,.9) 100%);
+  color:#fff;
+}
+.btnLo:hover { box-shadow:0 8px 28px rgba(255,69,58,.25); }
+
+/* modal */
+.overlay {
+  position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:50;
+  display:flex;align-items:center;justify-content:center;
+  opacity:0;pointer-events:none;transition:opacity .2s;
+  backdrop-filter:blur(6px);
+}
+.overlay.show { opacity:1;pointer-events:all; }
+.modal {
+  background:var(--card);border:1px solid var(--bdr);border-radius:22px;
+  padding:26px 22px;max-width:320px;width:90%;text-align:center;
+  transform:scale(.95) translateY(10px);transition:transform .25s cubic-bezier(.34,1.56,.64,1);
+  position:relative;overflow:hidden;
+}
+.modal::before {
+  content:'';position:absolute;top:0;left:0;right:0;height:1px;
+  background:linear-gradient(90deg,transparent,rgba(255,255,255,.1),transparent);
+}
+.overlay.show .modal { transform:scale(1) translateY(0); }
+.mIco { font-size:36px;margin-bottom:12px; }
+.mTtl { font-size:17px;font-weight:700;margin-bottom:8px; }
+.mSub { font-size:12px;color:var(--muted);line-height:1.6;margin-bottom:20px; }
+.mBtns { display:flex;gap:8px; }
+.mBtn { flex:1;padding:12px;border:none;border-radius:12px;font-size:13px;font-weight:700;font-family:'Syne',sans-serif;cursor:pointer;transition:opacity .15s,transform .12s; }
+.mBtn:active { transform:scale(.96); }
+.mCancel { background:rgba(255,255,255,.07);color:var(--muted); }
+.mConfirm { background:linear-gradient(135deg,var(--red),rgba(180,30,20,.9));color:#fff; }
+.mConfirm.ld { opacity:.5;pointer-events:none; }
+.btn.ld { pointer-events:none; opacity:.65; }
+.sp {
+  width:15px;height:15px;border:2px solid rgba(0,0,0,.3);border-top-color:#000;
+  border-radius:50%;animation:spin .55s linear infinite;display:none;
+}
+.btn.ld .sp { display:block; }
+
+/* result */
+.res { display:none; flex-direction:column; gap:10px; animation:fU .4s ease both; margin-top:20px; }
+.res.show { display:flex; }
+
+.rHdr { display:flex;align-items:center;justify-content:space-between;padding:0 4px;margin-bottom:2px; }
+.rLbl { font-size:10px;font-family:'Space Mono',monospace;color:var(--muted);letter-spacing:.1em;text-transform:uppercase; }
+.sPill {
+  display:flex;align-items:center;gap:5px;padding:3px 10px;border-radius:100px;
+  font-size:10px;font-family:'Space Mono',monospace;font-weight:700;
+}
+.sPill.ok { background:rgba(48,209,88,.1);color:var(--green);border:1px solid rgba(48,209,88,.18); }
+.sPill.err { background:rgba(255,69,58,.1);color:var(--red);border:1px solid rgba(255,69,58,.18); }
+.sDot { width:5px;height:5px;border-radius:50%;background:currentColor; }
+
+/* account card */
+.aC {
+  background:var(--card); border:1px solid var(--bdr); border-radius:22px;
+  overflow:hidden; position:relative;
+}
+.aC::before {
+  content:''; position:absolute; top:0; left:0; right:0; height:1px;
+  background:linear-gradient(90deg,transparent,rgba(255,255,255,.08),transparent);
+}
+.aTop {
+  padding:18px 18px 16px; display:flex; align-items:center; gap:13px;
+  border-bottom:1px solid var(--bdr2);
+}
+.av {
+  width:46px;height:46px;border-radius:13px;flex-shrink:0;
+  display:flex;align-items:center;justify-content:center;
+  font-size:19px;font-weight:800;
+  background:linear-gradient(135deg,var(--acc3),var(--acc2));
+}
+.aN { font-size:16px;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap; }
+.aId { font-size:11px;font-family:'Space Mono',monospace;color:var(--muted);margin-top:2px; }
+.rTag {
+  background:rgba(255,255,255,.05);border:1px solid var(--bdr);
+  border-radius:8px;padding:4px 9px;font-size:11px;font-family:'Space Mono',monospace;
+  color:var(--muted);flex-shrink:0;
+}
+
+/* platform list */
+.pList { }
+.pItem {
+  display:flex;align-items:center;padding:13px 18px;gap:13px;
+  border-bottom:1px solid var(--bdr2);transition:background .12s;
+}
+.pItem:last-child { border-bottom:none; }
+.pItem:hover { background:rgba(255,255,255,.02); }
+.pIco {
+  width:36px;height:36px;border-radius:10px;display:flex;
+  align-items:center;justify-content:center;font-size:17px;flex-shrink:0;
+}
+.pIco.google   { background:rgba(234,67,53,.1); }
+.pIco.guest    { background:rgba(255,255,255,.05); }
+.pIco.facebook { background:rgba(24,119,242,.1); }
+.pIco.twitter  { background:rgba(29,161,242,.1); }
+.pIco.vk       { background:rgba(0,119,255,.1); }
+.pIco.huawei   { background:rgba(255,59,48,.1); }
+.pInf { flex:1;min-width:0; }
+.pNm  { font-size:14px;font-weight:600; }
+.pUid { font-size:11px;font-family:'Space Mono',monospace;color:var(--muted);margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap; }
+
+/* unbind btn */
+.uBtn {
+  padding:6px 13px;border-radius:9px;border:none;cursor:pointer;
+  font-size:11px;font-weight:700;font-family:'Syne',sans-serif;
+  transition:opacity .15s,transform .12s;flex-shrink:0;
+}
+.uBtn.bound {
+  background:rgba(255,69,58,.12);color:var(--red);border:1px solid rgba(255,69,58,.2);
+}
+.uBtn.bound:hover { background:rgba(255,69,58,.2); }
+.uBtn.bound:active { transform:scale(.95); }
+.uBtn.unbound {
+  background:rgba(255,255,255,.04);color:var(--muted);border:1px solid var(--bdr);
+  cursor:default;
+}
+.uBtn.ld { opacity:.5;pointer-events:none; }
+.uBtn.done {
+  background:rgba(48,209,88,.1);color:var(--green);border:1px solid rgba(48,209,88,.2);
+  pointer-events:none;
+}
+
+/* error */
+.errBox {
+  background:rgba(255,69,58,.06);border:1px solid rgba(255,69,58,.18);
+  border-radius:16px;padding:15px 16px;display:flex;align-items:center;
+  gap:11px;color:var(--red);font-size:13px;font-family:'Space Mono',monospace;
+}
+
+/* toast */
+.toast {
+  position:fixed;bottom:32px;left:50%;transform:translateX(-50%) translateY(80px);
+  background:var(--card2);border:1px solid var(--bdr);border-radius:100px;
+  padding:10px 20px;font-size:13px;font-family:'Space Mono',monospace;
+  z-index:99;transition:transform .3s cubic-bezier(.34,1.56,.64,1),opacity .3s;
+  opacity:0;white-space:nowrap;box-shadow:0 8px 32px rgba(0,0,0,.4);
+}
+.toast.show { transform:translateX(-50%) translateY(0);opacity:1; }
+.toast.ok { color:var(--green); }
+.toast.err { color:var(--red); }
+
+/* footer */
+.ft { text-align:center;font-size:11px;font-family:'Space Mono',monospace;color:rgba(255,255,255,.1);margin-top:32px;animation:fU .55s .25s ease both; }
+
+/* animations */
+@keyframes fU { from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:translateY(0)} }
+@keyframes pulse { 0%,100%{opacity:1}50%{opacity:.25} }
+@keyframes spin { to{transform:rotate(360deg)} }
+@keyframes shk { 0%,100%{transform:translateX(0)}25%{transform:translateX(-6px)}75%{transform:translateX(6px)} }
+</style>
+</head>
+<body>
+<div class="grain"></div>
+<div class="page">
+
+  <div class="hdr">
+    <div class="badge"><span class="bdot"></span>GARENA · BIND CHECK</div>
+    <h1>Account<br>Bind Status</h1>
+    <p class="sub">Check & remove linked platforms</p>
+  </div>
+
+  <div class="iCard">
+    <div class="drg"></div>
+    <div class="lbl">Access Token</div>
+    <input class="inp" id="tok" type="text" placeholder="Paste your access token..." autocomplete="off" spellcheck="false">
+    <button class="btn" id="btn" onclick="doCheck()">
+      <div class="sp"></div>
+      <span id="bTxt">Check Bindings</span>
+    </button>
+    <button class="btn btnLo" id="btnLo" onclick="showLogout()">
+      <span>Logout All Devices</span>
+    </button>
+    <button class="btn" id="lBtn" onclick="askLogout()" style="margin-top:8px;background:linear-gradient(135deg,#ff453a 0%,#ff2d55 100%);">
+      <span>Logout All Devices</span>
+    </button>
+  </div>
+
+  <div class="res" id="res"></div>
+  <div class="ft">all requests go through local backend</div>
+
+</div>
+<div class="toast" id="toast"></div>
+
+<div id="modal" style="display:none;position:fixed;inset:0;z-index:200;background:rgba(0,0,0,.7);backdrop-filter:blur(8px);align-items:center;justify-content:center;">
+  <div style="background:#0e0e12;border:1px solid rgba(255,255,255,.08);border-radius:24px;padding:28px 24px;max-width:340px;width:90%;position:relative;animation:fU .3s ease both;">
+    <div style="width:44px;height:44px;border-radius:13px;background:rgba(255,69,58,.12);border:1px solid rgba(255,69,58,.2);display:flex;align-items:center;justify-content:center;font-size:20px;margin:0 auto 16px;">⚠</div>
+    <div style="font-size:17px;font-weight:700;text-align:center;margin-bottom:10px;">Logout All Devices</div>
+    <div style="font-size:13px;color:#6e6e7a;text-align:center;line-height:1.6;margin-bottom:24px;">
+      This will revoke your access token and sign you out from <b style="color:#f0f0f5;">all devices</b>. You will need a new token to log back in.
+    </div>
+    <div style="display:flex;gap:10px;">
+      <button onclick="closeModal()" style="flex:1;padding:13px;border-radius:13px;border:1px solid rgba(255,255,255,.08);background:rgba(255,255,255,.04);color:#f0f0f5;font-size:14px;font-weight:600;font-family:Syne,sans-serif;cursor:pointer;">Cancel</button>
+      <button onclick="confirmLogout()" id="confBtn" style="flex:1;padding:13px;border-radius:13px;border:none;background:linear-gradient(135deg,#ff453a,#ff2d55);color:#fff;font-size:14px;font-weight:700;font-family:Syne,sans-serif;cursor:pointer;">Confirm</button>
+    </div>
+  </div>
+</div>
+
+<div class="overlay" id="loOverlay">
+  <div class="modal">
+    <div class="mIco">⚠️</div>
+    <div class="mTtl">Logout All Devices</div>
+    <div class="mSub">This will sign you out from <strong>all devices</strong> and kill your current access token. You will need to generate a new access token to log back in.</div>
+    <div class="mBtns">
+      <button class="mBtn mCancel" onclick="hideLogout()">Cancel</button>
+      <button class="mBtn mConfirm" id="mConfBtn" onclick="confirmLogout()">Confirm</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const PLATS = {
+  8:  {name:'Google',   icon:'🔵',cls:'google'},
+  3:  {name:'Facebook', icon:'🟦',cls:'facebook'},
+  11: {name:'Twitter',  icon:'🐦',cls:'twitter'},
+  5:  {name:'VK',       icon:'💙',cls:'vk'},
+  7:  {name:'Huawei',   icon:'🔴',cls:'huawei'},
+};
+
+let curTok = '';
+
+async function doCheck() {
+  const tok = document.getElementById('tok').value.trim();
+  if (!tok) { shakeFld(); return; }
+  curTok = tok;
+
+  setLd(true);
+  document.getElementById('res').classList.remove('show');
+  document.getElementById('res').innerHTML = '';
+
+  try {
+    const r = await fetch(`/api/check?token=${encodeURIComponent(tok)}`);
+    const d = await r.json();
+    console.log('bind response:', JSON.stringify(d));
+    if (d.error_code || d.error) {
+      showErr(d.msg || d.error || 'Invalid token');
+    } else if (d.bounded_accounts !== undefined || d.available_platforms !== undefined || d.platform_info || d.account_id || d.nickname) {
+      renderResult(d);
+    } else {
+      showRaw(d);
+    }
+  } catch(e) {
+    showErr('Network error: ' + e.message);
+  }
+
+  setLd(false);
+}
+
+function renderResult(d) {
+  const res = document.getElementById('res');
+  const nick = d.nickname || d.account_nickname || '?';
+  const aId  = d.account_id || '—';
+  const reg  = d.region || '—';
+  const bound = d.bounded_accounts || d.platform_info || [];
+  const avail = d.available_platforms || [];
+  const bMap  = {};
+  bound.forEach(p => {
+    const pid = p.platform || p.platform_id || p.type;
+    bMap[pid] = p;
+  });
+  const availSet = new Set(avail.map(p => p.platform || p.platform_id || p.type || p));
+
+  const boundCount = bound.length;
+  const totalPlats = Object.keys(PLATS).length;
+
+  let html = `
+    <div class="rHdr">
+      <span class="rLbl">Result</span>
+      <div class="sPill ok"><div class="sDot"></div>${boundCount} BOUND</div>
+    </div>
+    <div class="aC">
+      ${aId !== '—' || nick !== '?' ? `<div class="aTop">
+        <div class="av">${esc((nick[0]||'?')).toUpperCase()}</div>
+        <div style="flex:1;min-width:0">
+          <div class="aN">${esc(nick)}</div>
+          <div class="aId">#${aId}</div>
+        </div>
+        ${reg !== '—' ? `<div class="rTag">${esc(reg)}</div>` : ''}
+      </div>` : ''}
+      <div class="pList">`;
+
+  const showIds = avail.length > 0
+    ? avail.map(p => String(p.platform || p.platform_id || p.type || p))
+    : Object.keys(PLATS);
+  const allIds = [...new Set([...showIds, ...Object.keys(PLATS)])];
+  allIds.forEach((id) => {
+    const p = PLATS[parseInt(id)] || {name:`Platform ${id}`,icon:'🔗',cls:'guest'};
+    const bd    = bMap[parseInt(id)];
+    const isBd  = !!bd;
+    const uid   = bd?.platform_uid || bd?.uid || '';
+    html += `
+      <div class="pItem" id="pItem_${id}">
+        <div class="pIco ${p.cls}">${p.icon}</div>
+        <div class="pInf">
+          <div class="pNm">${p.name}</div>
+          ${uid ? `<div class="pUid">${esc(uid)}</div>` : '<div class="pUid" style="color:rgba(255,255,255,.15)">not linked</div>'}
+        </div>
+        <button class="uBtn ${isBd?'bound':'unbound'}" id="uBtn_${id}" ${isBd ? `onclick="doUnbind(${id}, '${uid}')"` : 'disabled'}>
+          ${isBd ? 'Unbind' : 'None'}
+        </button>
+      </div>`;
+  });
+
+  html += `</div></div>`;
+  res.innerHTML = html;
+  res.classList.add('show');
+}
+
+async function doUnbind(plt, uid) {
+  const b = document.getElementById(`uBtn_${plt}`);
+  b.classList.add('ld');
+  b.textContent = '...';
+
+  try {
+    const r = await fetch('/api/unbind', {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({token: curTok, platform: plt, uid: uid})
+    });
+    const d = await r.json();
+    if (d.success || d.status === 200 || d.status === 201) {
+      b.classList.remove('ld','bound');
+      b.classList.add('done');
+      b.textContent = 'Unbound';
+      const item = document.getElementById(`pItem_${plt}`);
+      const uid = item.querySelector('.pUid');
+      if (uid) { uid.style.color = 'rgba(255,255,255,.15)'; uid.textContent = 'not linked'; }
+      toast('Unbound successfully', 'ok');
+    } else {
+      b.classList.remove('ld');
+      b.textContent = 'Unbind';
+      toast(d.error || 'Unbind failed', 'err');
+    }
+  } catch(e) {
+    b.classList.remove('ld');
+    b.textContent = 'Unbind';
+    toast('Network error', 'err');
+  }
+}
+
+function showRaw(d) {
+  const res = document.getElementById('res');
+  res.innerHTML = `
+    <div class="rHdr">
+      <span class="rLbl">Raw Response</span>
+      <div class="sPill ok"><div class="sDot"></div>GOT DATA</div>
+    </div>
+    <div class="errBox" style="color:var(--acc);word-break:break-all;font-size:11px">${esc(JSON.stringify(d,null,2))}</div>`;
+  res.classList.add('show');
+}
+
+function showErr(msg) {
+  const res = document.getElementById('res');
+  res.innerHTML = `
+    <div class="rHdr">
+      <span class="rLbl">Result</span>
+      <div class="sPill err"><div class="sDot"></div>ERROR</div>
+    </div>
+    <div class="errBox">⚠ ${esc(msg)}</div>`;
+  res.classList.add('show');
+}
+
+let toastT;
+function toast(msg, type) {
+  const t = document.getElementById('toast');
+  clearTimeout(toastT);
+  t.className = `toast ${type}`;
+  t.textContent = msg;
+  requestAnimationFrame(() => t.classList.add('show'));
+  toastT = setTimeout(() => t.classList.remove('show'), 2400);
+}
+
+function setLd(on) {
+  const btn = document.getElementById('btn');
+  btn.classList.toggle('ld', on);
+  document.getElementById('bTxt').textContent = on ? 'Checking...' : 'Check Bindings';
+}
+
+function shakeFld() {
+  const f = document.getElementById('tok');
+  f.classList.remove('shake');
+  void f.offsetWidth;
+  f.classList.add('shake');
+  setTimeout(() => f.classList.remove('shake'), 400);
+}
+
+function esc(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+function showLogout() {
+  const tok = document.getElementById('tok').value.trim();
+  if (!tok) { shakeFld(); return; }
+  document.getElementById('loOverlay').classList.add('show');
+}
+
+function hideLogo
